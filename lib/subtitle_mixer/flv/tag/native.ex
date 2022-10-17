@@ -1,3 +1,3 @@
-defmodule FLV.Tag.Native do
+defmodule SubtitleMixer.FLV.Tag.Native do
   use Unifex.Loader
 end

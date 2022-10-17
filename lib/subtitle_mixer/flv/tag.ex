@@ -1,5 +1,5 @@
-defmodule FLV.Tag do
-  alias FLV.Tag.Native
+defmodule SubtitleMixer.FLV.Tag do
+  alias SubtitleMixer.FLV.Tag.Native
 
   @doc """
   Takes an flv packet and puts a subtitle in it. The output of the native sub
