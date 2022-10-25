@@ -16,8 +16,12 @@ UNIFEX_TERM add_caption(UnifexEnv *env, UnifexPayload *flv, char *text)
     flv_payload_read_tag(&flv->data[PREV_SIZE_HEADER], &tag);
 
     // check if the tag is writable
-    if (flvtag_avcpackettype_nalu == flvtag_avcpackettype(&tag))
+    if (flvtag_avcpackettype_nalu == flvtag_avcpackettype(&tag)) {
         flvtag_addcaption_text(&tag, text);
+    } else {
+        flvtag_free(&tag);
+        return add_caption_result_error(env, "type_not_nalu");
+    }
 
     // allocate and write the output payload
     size_t size = flvtag_raw_size(&tag);
