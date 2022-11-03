@@ -24,6 +24,7 @@
 #include "flv.h"
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
 
 void flvtag_init(flvtag_t* tag)
 {

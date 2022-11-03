@@ -27,6 +27,7 @@
 #include "xds.h"
 #include <stdio.h>
 #include <string.h>
+#include <sys/types.h>
 ////////////////////////////////////////////////////////////////////////////////
 void caption_frame_buffer_clear(caption_frame_buffer_t* buff)
 {
