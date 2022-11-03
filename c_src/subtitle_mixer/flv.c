@@ -24,36 +24,33 @@
 #include "flv.h"
 #include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
 
-void flvtag_init(flvtag_t *tag)
+void flvtag_init(flvtag_t* tag)
 {
     memset(tag, 0, sizeof(flvtag_t));
 }
 
-void flvtag_free(flvtag_t *tag)
+void flvtag_free(flvtag_t* tag)
 {
-    if (tag->data)
-    {
+    if (tag->data) {
         free(tag->data);
     }
 
     flvtag_init(tag);
 }
 
-void flvtag_swap(flvtag_t *tag1, flvtag_t *tag2)
+void flvtag_swap(flvtag_t* tag1, flvtag_t* tag2)
 {
     flvtag_t tag3 = (*tag1);
     (*tag1) = (*tag2);
     (*tag2) = tag3;
 }
 
-int flvtag_reserve(flvtag_t *tag, uint32_t size)
+int flvtag_reserve(flvtag_t* tag, uint32_t size)
 {
     size += FLV_TAG_HEADER_SIZE + FLV_TAG_FOOTER_SIZE;
 
-    if (size > tag->aloc)
-    {
+    if (size > tag->aloc) {
         tag->data = realloc(tag->data, size);
         tag->aloc = size;
     }
@@ -61,43 +58,39 @@ int flvtag_reserve(flvtag_t *tag, uint32_t size)
     return 1;
 }
 
-FILE *flv_open_read(const char *flv)
+FILE* flv_open_read(const char* flv)
 {
-    if (0 == flv || 0 == strcmp("-", flv))
-    {
+    if (0 == flv || 0 == strcmp("-", flv)) {
         return freopen(NULL, "rb", stdin);
     }
 
     return fopen(flv, "rb");
 }
 
-FILE *flv_open_write(const char *flv)
+FILE* flv_open_write(const char* flv)
 {
-    if (0 == flv || 0 == strcmp("-", flv))
-    {
+    if (0 == flv || 0 == strcmp("-", flv)) {
         return freopen(NULL, "wb", stdout);
     }
 
     return fopen(flv, "wb");
 }
 
-FILE *flv_close(FILE *flv)
+FILE* flv_close(FILE* flv)
 {
     fclose(flv);
     return 0;
 }
 
-int flv_read_header(FILE *flv, int *has_audio, int *has_video)
+int flv_read_header(FILE* flv, int* has_audio, int* has_video)
 {
     uint8_t h[FLV_HEADER_SIZE];
 
-    if (FLV_HEADER_SIZE != fread(&h[0], 1, FLV_HEADER_SIZE, flv))
-    {
+    if (FLV_HEADER_SIZE != fread(&h[0], 1, FLV_HEADER_SIZE, flv)) {
         return 0;
     }
 
-    if ('F' != h[0] || 'L' != h[1] || 'V' != h[2])
-    {
+    if ('F' != h[0] || 'L' != h[1] || 'V' != h[2]) {
         return 0;
     }
 
@@ -106,19 +99,18 @@ int flv_read_header(FILE *flv, int *has_audio, int *has_video)
     return 1;
 }
 
-int flv_write_header(FILE *flv, int has_audio, int has_video)
+int flv_write_header(FILE* flv, int has_audio, int has_video)
 {
-    uint8_t h[FLV_HEADER_SIZE] = {'F', 'L', 'V', 1, (has_audio ? 0x04 : 0x00) | (has_video ? 0x01 : 0x00), 0, 0, 0, 9, 0, 0, 0, 0};
+    uint8_t h[FLV_HEADER_SIZE] = { 'F', 'L', 'V', 1, (has_audio ? 0x04 : 0x00) | (has_video ? 0x01 : 0x00), 0, 0, 0, 9, 0, 0, 0, 0 };
     return FLV_HEADER_SIZE == fwrite(&h[0], 1, FLV_HEADER_SIZE, flv);
 }
 
-int flv_read_tag(FILE *flv, flvtag_t *tag)
+int flv_read_tag(FILE* flv, flvtag_t* tag)
 {
     uint32_t size;
     uint8_t h[FLV_TAG_HEADER_SIZE];
 
-    if (FLV_TAG_HEADER_SIZE != fread(&h[0], 1, FLV_TAG_HEADER_SIZE, flv))
-    {
+    if (FLV_TAG_HEADER_SIZE != fread(&h[0], 1, FLV_TAG_HEADER_SIZE, flv)) {
         return 0;
     }
 
@@ -127,24 +119,22 @@ int flv_read_tag(FILE *flv, flvtag_t *tag)
     // copy header to buffer
     memcpy(tag->data, &h[0], FLV_TAG_HEADER_SIZE);
 
-    if (size + FLV_TAG_FOOTER_SIZE != fread(&tag->data[FLV_TAG_HEADER_SIZE], 1, size + FLV_TAG_FOOTER_SIZE, flv))
-    {
+    if (size + FLV_TAG_FOOTER_SIZE != fread(&tag->data[FLV_TAG_HEADER_SIZE], 1, size + FLV_TAG_FOOTER_SIZE, flv)) {
         return 0;
     }
 
     return 1;
 }
 
-int flv_write_tag(FILE *flv, flvtag_t *tag)
+int flv_write_tag(FILE* flv, flvtag_t* tag)
 {
     size_t size = flvtag_raw_size(tag);
     return size == fwrite(flvtag_raw_data(tag), 1, size, flv);
 }
 ////////////////////////////////////////////////////////////////////////////////
-size_t flvtag_header_size(flvtag_t *tag)
+size_t flvtag_header_size(flvtag_t* tag)
 {
-    switch (flvtag_type(tag))
-    {
+    switch (flvtag_type(tag)) {
     case flvtag_type_audio:
         return FLV_TAG_HEADER_SIZE + (flvtag_soundformat_aac != flvtag_soundformat(tag) ? 1 : 2);
 
@@ -157,32 +147,32 @@ size_t flvtag_header_size(flvtag_t *tag)
     }
 }
 
-size_t flvtag_payload_size(flvtag_t *tag)
+size_t flvtag_payload_size(flvtag_t* tag)
 {
     return FLV_TAG_HEADER_SIZE + flvtag_size(tag) - flvtag_header_size(tag);
 }
 
-uint8_t *flvtag_payload_data(flvtag_t *tag)
+uint8_t* flvtag_payload_data(flvtag_t* tag)
 {
     size_t payload_offset = flvtag_header_size(tag);
     return &tag->data[payload_offset];
 }
 ////////////////////////////////////////////////////////////////////////////////
-int flvtag_updatesize(flvtag_t *tag, uint32_t size)
+int flvtag_updatesize(flvtag_t* tag, uint32_t size)
 {
     tag->data[1] = size >> 16; // DataSize
-    tag->data[2] = size >> 8;  // DataSize
-    tag->data[3] = size >> 0;  // DataSize
+    tag->data[2] = size >> 8; // DataSize
+    tag->data[3] = size >> 0; // DataSize
     size += 11;
     tag->data[size + 0] = size >> 24; // PrevTagSize
     tag->data[size + 1] = size >> 16; // PrevTagSize
-    tag->data[size + 2] = size >> 8;  // PrevTagSize
-    tag->data[size + 3] = size >> 0;  // PrevTagSize
+    tag->data[size + 2] = size >> 8; // PrevTagSize
+    tag->data[size + 3] = size >> 0; // PrevTagSize
     return 1;
 }
 
 #define FLVTAG_PREALOC 2048
-int flvtag_initavc(flvtag_t *tag, uint32_t dts, int32_t cts, flvtag_frametype_t type)
+int flvtag_initavc(flvtag_t* tag, uint32_t dts, int32_t cts, flvtag_frametype_t type)
 {
     flvtag_init(tag);
     flvtag_reserve(tag, 5 + FLVTAG_PREALOC);
@@ -191,12 +181,12 @@ int flvtag_initavc(flvtag_t *tag, uint32_t dts, int32_t cts, flvtag_frametype_t 
     tag->data[5] = dts >> 8;
     tag->data[6] = dts >> 0;
     tag->data[7] = dts >> 24;
-    tag->data[8] = 0;  // StreamID
-    tag->data[9] = 0;  // StreamID
+    tag->data[8] = 0; // StreamID
+    tag->data[9] = 0; // StreamID
     tag->data[10] = 0; // StreamID
     // VideoTagHeader
     tag->data[11] = ((type << 4) % 0xF0) | 0x07; // CodecId
-    tag->data[12] = 0x01;                        // AVC NALU
+    tag->data[12] = 0x01; // AVC NALU
     tag->data[13] = cts >> 16;
     tag->data[14] = cts >> 8;
     tag->data[15] = cts >> 0;
@@ -204,7 +194,7 @@ int flvtag_initavc(flvtag_t *tag, uint32_t dts, int32_t cts, flvtag_frametype_t 
     return 1;
 }
 
-int flvtag_initamf(flvtag_t *tag, uint32_t dts)
+int flvtag_initamf(flvtag_t* tag, uint32_t dts)
 {
     flvtag_init(tag);
     flvtag_reserve(tag, FLVTAG_PREALOC);
@@ -213,25 +203,24 @@ int flvtag_initamf(flvtag_t *tag, uint32_t dts)
     tag->data[5] = dts >> 8;
     tag->data[6] = dts >> 0;
     tag->data[7] = dts >> 24;
-    tag->data[8] = 0;  // StreamID
-    tag->data[9] = 0;  // StreamID
+    tag->data[8] = 0; // StreamID
+    tag->data[9] = 0; // StreamID
     tag->data[10] = 0; // StreamID
     flvtag_updatesize(tag, 0);
     return 1;
 }
 
 // shamelessly taken from libtomcrypt, an public domain project
-static void base64_encode(const unsigned char *in, unsigned long inlen, unsigned char *out, unsigned long *outlen)
+static void base64_encode(const unsigned char* in, unsigned long inlen, unsigned char* out, unsigned long* outlen)
 {
-    static const char *codes = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    static const char* codes = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     unsigned long i, len2, leven;
-    unsigned char *p;
+    unsigned char* p;
 
     /* valid output size ? */
     len2 = 4 * ((inlen + 2) / 3);
 
-    if (*outlen < len2 + 1)
-    {
+    if (*outlen < len2 + 1) {
         *outlen = len2 + 1;
         return;
     }
@@ -239,8 +228,7 @@ static void base64_encode(const unsigned char *in, unsigned long inlen, unsigned
     p = out;
     leven = 3 * (inlen / 3);
 
-    for (i = 0; i < leven; i += 3)
-    {
+    for (i = 0; i < leven; i += 3) {
         *p++ = codes[(in[0] >> 2) & 0x3F];
         *p++ = codes[(((in[0] & 3) << 4) + (in[1] >> 4)) & 0x3F];
         *p++ = codes[(((in[1] & 0xf) << 2) + (in[2] >> 6)) & 0x3F];
@@ -248,8 +236,7 @@ static void base64_encode(const unsigned char *in, unsigned long inlen, unsigned
         in += 3;
     }
 
-    if (i < inlen)
-    {
+    if (i < inlen) {
         unsigned a = in[0];
         unsigned b = (i + 1 < inlen) ? in[1] : 0;
 
@@ -263,20 +250,20 @@ static void base64_encode(const unsigned char *in, unsigned long inlen, unsigned
     *outlen = p - out;
 }
 
-const char onCaptionInfo708[] = {0x02, 0x00, 0x0D, 'o', 'n', 'C', 'a', 'p', 't', 'i', 'o', 'n', 'I', 'n', 'f', 'o',
-                                 0x08, 0x00, 0x00, 0x00, 0x02,
-                                 0x00, 0x04, 't', 'y', 'p', 'e',
-                                 0x02, 0x00, 0x03, '7', '0', '8',
-                                 0x00, 0x04, 'd', 'a', 't', 'a',
-                                 0x02, 0x00, 0x00};
+const char onCaptionInfo708[] = { 0x02, 0x00, 0x0D, 'o', 'n', 'C', 'a', 'p', 't', 'i', 'o', 'n', 'I', 'n', 'f', 'o',
+    0x08, 0x00, 0x00, 0x00, 0x02,
+    0x00, 0x04, 't', 'y', 'p', 'e',
+    0x02, 0x00, 0x03, '7', '0', '8',
+    0x00, 0x04, 'd', 'a', 't', 'a',
+    0x02, 0x00, 0x00 };
 
-int flvtag_amfcaption_708(flvtag_t *tag, uint32_t timestamp, sei_message_t *msg)
+int flvtag_amfcaption_708(flvtag_t* tag, uint32_t timestamp, sei_message_t* msg)
 {
     flvtag_initamf(tag, timestamp);
     unsigned long size = 1 + (4 * ((sei_message_size(msg) + 2) / 3));
     flvtag_reserve(tag, sizeof(onCaptionInfo708) + size + 3);
     memcpy(flvtag_payload_data(tag), onCaptionInfo708, sizeof(onCaptionInfo708));
-    uint8_t *data = flvtag_payload_data(tag) + sizeof(onCaptionInfo708);
+    uint8_t* data = flvtag_payload_data(tag) + sizeof(onCaptionInfo708);
     base64_encode(sei_message_data(msg), sei_message_size(msg), data, &size);
 
     // Update the size of the base64 string
@@ -291,27 +278,26 @@ int flvtag_amfcaption_708(flvtag_t *tag, uint32_t timestamp, sei_message_t *msg)
     return 1;
 }
 
-const char onCaptionInfoUTF8[] = {0x02, 0x00, 0x0D, 'o', 'n', 'C', 'a', 'p', 't', 'i', 'o', 'n', 'I', 'n', 'f', 'o',
-                                  0x08, 0x00, 0x00, 0x00, 0x02,
-                                  0x00, 0x04, 't', 'y', 'p', 'e',
-                                  0x02, 0x00, 0x04, 'U', 'T', 'F', '8',
-                                  0x00, 0x04, 'd', 'a', 't', 'a',
-                                  0x02, 0x00, 0x00};
+const char onCaptionInfoUTF8[] = { 0x02, 0x00, 0x0D, 'o', 'n', 'C', 'a', 'p', 't', 'i', 'o', 'n', 'I', 'n', 'f', 'o',
+    0x08, 0x00, 0x00, 0x00, 0x02,
+    0x00, 0x04, 't', 'y', 'p', 'e',
+    0x02, 0x00, 0x04, 'U', 'T', 'F', '8',
+    0x00, 0x04, 'd', 'a', 't', 'a',
+    0x02, 0x00, 0x00 };
 
 #define MAX_AMF_STRING 65636
-int flvtag_amfcaption_utf8(flvtag_t *tag, uint32_t timestamp, const utf8_char_t *text)
+int flvtag_amfcaption_utf8(flvtag_t* tag, uint32_t timestamp, const utf8_char_t* text)
 {
     flvtag_initamf(tag, timestamp);
     unsigned long size = strlen(text);
 
-    if (MAX_AMF_STRING < size)
-    {
+    if (MAX_AMF_STRING < size) {
         size = MAX_AMF_STRING;
     }
 
     flvtag_reserve(tag, sizeof(onCaptionInfoUTF8) + size + 3);
     memcpy(flvtag_payload_data(tag), onCaptionInfoUTF8, sizeof(onCaptionInfoUTF8));
-    uint8_t *data = flvtag_payload_data(tag) + sizeof(onCaptionInfo708);
+    uint8_t* data = flvtag_payload_data(tag) + sizeof(onCaptionInfo708);
     memcpy(data, text, size);
     // Update the size of the string
     data[-2] = size >> 8;
@@ -327,13 +313,12 @@ int flvtag_amfcaption_utf8(flvtag_t *tag, uint32_t timestamp, const utf8_char_t 
 
 #define LENGTH_SIZE 4
 
-int flvtag_avcwritenal(flvtag_t *tag, uint8_t *data, size_t size)
+int flvtag_avcwritenal(flvtag_t* tag, uint8_t* data, size_t size)
 {
-    if (0 < size)
-    {
+    if (0 < size) {
         uint32_t flvsize = flvtag_size(tag);
         flvtag_reserve(tag, flvsize + LENGTH_SIZE + size);
-        uint8_t *payload = tag->data + FLV_TAG_HEADER_SIZE + flvsize;
+        uint8_t* payload = tag->data + FLV_TAG_HEADER_SIZE + flvsize;
         payload[0] = size >> 24; // nalu size
         payload[1] = size >> 16;
         payload[2] = size >> 8;
@@ -344,59 +329,51 @@ int flvtag_avcwritenal(flvtag_t *tag, uint8_t *data, size_t size)
     return 1;
 }
 
-int flvtag_avcwritesei(flvtag_t *tag, sei_t *sei)
+int flvtag_avcwritesei(flvtag_t* tag, sei_t* sei)
 {
-    uint8_t *sei_data = malloc(sei_render_size(sei));
+    uint8_t* sei_data = malloc(sei_render_size(sei));
     size_t sei_size = sei_render(sei, sei_data);
     flvtag_avcwritenal(tag, sei_data, sei_size);
     free(sei_data);
     return 1;
 }
 
-int flvtag_addsei(flvtag_t *tag, sei_t *sei)
+int flvtag_addsei(flvtag_t* tag, sei_t* sei)
 {
-    if (flvtag_avcpackettype_nalu != flvtag_avcpackettype(tag))
-    {
+    if (flvtag_avcpackettype_nalu != flvtag_avcpackettype(tag)) {
         return 0;
     }
 
     sei_t new_sei;
-    sei_init(&new_sei, flvtag_pts(tag));
+    sei_init(&new_sei);
     sei_cat(&new_sei, sei, 1);
 
     flvtag_t new_tag;
     flvtag_initavc(&new_tag, flvtag_dts(tag), flvtag_cts(tag), flvtag_frametype(tag));
 
-    uint8_t *data = flvtag_payload_data(tag);
+    uint8_t* data = flvtag_payload_data(tag);
     ssize_t size = flvtag_payload_size(tag);
 
-    while (0 < size)
-    {
-        uint8_t *nalu_data = &data[LENGTH_SIZE];
+    while (0 < size) {
+        uint8_t* nalu_data = &data[LENGTH_SIZE];
         uint8_t nalu_type = nalu_data[0] & 0x1F;
         uint32_t nalu_size = (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3];
         data += LENGTH_SIZE + nalu_size;
         size -= LENGTH_SIZE + nalu_size;
 
-        if (6 == nalu_type)
-        {
+        if (6 == nalu_type) {
             sei_cat(&new_sei, sei, 0); // copy non itu_t_t35 sei messages
-        }
-        else if (new_sei.head && 7 != nalu_type && 8 != nalu_type && 9 != nalu_type)
-        {
+        } else if (new_sei.head && 7 != nalu_type && 8 != nalu_type && 9 != nalu_type) {
             flvtag_avcwritesei(&new_tag, &new_sei);
             flvtag_avcwritenal(&new_tag, nalu_data, nalu_size);
             sei_free(&new_sei);
-        }
-        else
-        {
+        } else {
             flvtag_avcwritenal(&new_tag, nalu_data, nalu_size);
         }
     }
 
     // On the off chance we have an empty frame, we still wish to write the sei
-    if (new_sei.head)
-    {
+    if (new_sei.head) {
         flvtag_avcwritesei(&new_tag, &new_sei);
         sei_free(&new_sei);
     }
@@ -406,20 +383,17 @@ int flvtag_addsei(flvtag_t *tag, sei_t *sei)
     return 1;
 }
 
-int flvtag_addcaption_text(flvtag_t *tag, const utf8_char_t *text)
+int flvtag_addcaption_text(flvtag_t* tag, const utf8_char_t* text)
 {
     sei_t sei;
-    sei_init(&sei, flvtag_pts(tag));
+    sei_init(&sei);
 
-    if (text)
-    {
+    if (text) {
         caption_frame_t frame;
         caption_frame_init(&frame);
         caption_frame_from_text(&frame, text);
         sei_from_caption_frame(&sei, &frame);
-    }
-    else
-    {
+    } else {
         sei_from_caption_clear(&sei);
     }
 
@@ -428,10 +402,10 @@ int flvtag_addcaption_text(flvtag_t *tag, const utf8_char_t *text)
     return ret;
 }
 
-int flvtag_addcaption_scc(flvtag_t *tag, const scc_t *scc)
+int flvtag_addcaption_scc(flvtag_t* tag, const scc_t* scc)
 {
     sei_t sei;
-    sei_init(&sei, flvtag_pts(tag));
+    sei_init(&sei);
     sei_from_scc(&sei, scc);
     int ret = flvtag_addsei(tag, &sei);
     sei_free(&sei);

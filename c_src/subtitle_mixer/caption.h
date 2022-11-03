@@ -30,7 +30,6 @@ extern "C" {
 #include "eia608.h"
 #include "utf8.h"
 #include "xds.h"
-#include <sys/types.h>
 
 // ssize_t is POSIX and does not exist on Windows
 #if defined(_MSC_VER)
@@ -42,18 +41,19 @@ typedef signed int ssize_t;
 #endif
 
 typedef enum {
-    LIBCAPTION_ERROR = 0,
     LIBCAPTION_OK = 1,
+    LIBCAPTION_ERROR = 0,
     LIBCAPTION_READY = 2
 } libcaption_stauts_t;
 
 static inline libcaption_stauts_t libcaption_status_update(libcaption_stauts_t old_stat, libcaption_stauts_t new_stat)
 {
-    return (LIBCAPTION_ERROR == old_stat || LIBCAPTION_ERROR == new_stat) ? LIBCAPTION_ERROR : (LIBCAPTION_READY == old_stat) ? LIBCAPTION_READY : new_stat;
+    return (LIBCAPTION_ERROR == old_stat || LIBCAPTION_ERROR == new_stat) ? LIBCAPTION_ERROR
+                                                                          : (LIBCAPTION_READY == old_stat) ? LIBCAPTION_READY : new_stat;
 }
 
 #define SCREEN_ROWS 15
-#define SCREEN_COLS 100
+#define SCREEN_COLS 32
 
 typedef struct {
     unsigned int uln : 1; //< underline
@@ -68,6 +68,7 @@ typedef struct {
 typedef struct {
     unsigned int uln : 1; //< underline
     unsigned int sty : 3; //< style
+    unsigned int mod : 3; //< current mode
     unsigned int rup : 2; //< roll-up line count minus 1
     int8_t row, col;
     uint16_t cc_data;
@@ -80,9 +81,17 @@ typedef struct {
     caption_frame_state_t state;
     caption_frame_buffer_t front;
     caption_frame_buffer_t back;
-    caption_frame_buffer_t* write;
     libcaption_stauts_t status;
 } caption_frame_t;
+
+// typedef enum {
+//     eia608_paint_on = 0,
+//     eia608_pop_on   = 1,
+//     eia608_rollup_2 = 2,
+//     eia608_rollup_3 = 3,
+//     eia608_rollup_4 = 4,
+// } eia608_display_mode_t;
+// eia608_display_mode_t caption_frame_mode (caption_frame_t* frame);
 
 /*!
     \brief Initializes an allocated caption_frame_t instance
@@ -92,20 +101,7 @@ void caption_frame_init(caption_frame_t* frame);
 /*! \brief
     \param
 */
-static inline int caption_frame_popon(caption_frame_t* frame) { return (frame->write == &frame->back) ? 1 : 0; }
-/*! \brief
-    \param
-*/
-static inline int caption_frame_painton(caption_frame_t* frame) { return (frame->write == &frame->front) ? 1 : 0; }
-/*! \brief
-    \param
-*/
-const static int _caption_frame_rollup[] = { 0, 2, 3, 4 };
-static inline int caption_frame_rollup(caption_frame_t* frame) { return _caption_frame_rollup[frame->state.rup]; }
-/*! \brief
-    \param
-*/
-static inline double caption_frame_timestamp(caption_frame_t* frame) { return frame->timestamp; }
+inline double caption_frame_timestamp(caption_frame_t* frame) { return frame->timestamp; }
 /*! \brief Writes a single charcter to a caption_frame_t object
     \param frame A pointer to an allocted and initialized caption_frame_t object
     \param row Row position to write charcter, must be between 0 and SCREEN_ROWS-1

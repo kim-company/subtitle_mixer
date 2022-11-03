@@ -37,6 +37,7 @@ extern "C" {
 #define EIA608_B1(B) EIA608_B2((B) + 0), EIA608_B2((B) + 8), EIA608_B2((B) + 16), EIA608_B2((B) + 24), EIA608_B2((B) + 32), EIA608_B2((B) + 40), EIA608_B2((B) + 48), EIA608_B2((B) + 56)
 
 static const uint8_t eia608_parity_table[] = { EIA608_B1(0), EIA608_B1(64) };
+extern const char* eia608_mode_map[];
 extern const char* eia608_style_map[];
 
 #ifdef _MSC_VER
@@ -137,14 +138,11 @@ uint16_t eia608_row_column_pramble(int row, int col, int chan, int underline);
 /*! \brief
     \param
 */
-uint16_t eia608_row_style_pramble(int row, int chan, eia608_style_t style, int underline);
-/*! \brief
-    \param
-*/
-uint16_t eia608_midrow_change(int chan, eia608_style_t style, int underline);
+uint16_t eia608_row_style_pramble(int row, eia608_style_t style, int chan, int underline);
+
 ////////////////////////////////////////////////////////////////////////////////
 // control command
-typedef enum {
+typedef enum { // yes, no?
     eia608_tab_offset_0 = 0x1720,
     eia608_tab_offset_1 = 0x1721,
     eia608_tab_offset_2 = 0x1722,
@@ -166,6 +164,9 @@ typedef enum {
     eia608_control_end_of_caption = 0x142F,
 } eia608_control_t;
 
+#define eia608_control_popon eia608_control_resume_caption_loading
+#define eia608_control_painton eia608_control_resume_direct_captioning
+
 /*! \brief
     \param
 */
@@ -178,6 +179,7 @@ static inline uint16_t eia608_tab(int size, int cc) { return eia608_control_comm
     \param
 */
 eia608_control_t eia608_parse_control(uint16_t cc_data, int* cc);
+
 ////////////////////////////////////////////////////////////////////////////////
 // text
 /*! \brief

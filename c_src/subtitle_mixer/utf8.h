@@ -80,9 +80,9 @@ utf8_size_t utf8_char_count(const char* data, size_t size);
 /*! \brief
     \param
 
-    returnes the length of the line in bytes triming not printable characters at the end
+    returnes the length of the line in bytes triming not printable charcters at the end
 */
-utf8_size_t utf8_trimmed_length(const utf8_char_t* data, utf8_size_t charcters);
+size_t utf8_trimmed_length(const utf8_char_t* data, size_t size);
 /*! \brief
     \param
 
@@ -112,15 +112,6 @@ int utf8_line_count(const utf8_char_t* data);
 #define UFTF_DEFAULT_MAX_FILE_SIZE = (50 * 1024 * 1024);
 
 utf8_char_t* utf8_load_text_file(const char* path, size_t* size);
-
-/*! \brief
-    \param
-
-    Compares 2 strings up to max len
-*/
-#ifndef strnstr
-char* strnstr(const char* string1, const char* string2, size_t len);
-#endif
 
 #ifdef __cplusplus
 }

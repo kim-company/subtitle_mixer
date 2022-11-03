@@ -81,8 +81,15 @@ size_t scc_to_608(scc_t** scc, const utf8_char_t* data)
     }
 
     // Skip blank lines
-    while(utf8_char_whitespace(data)) {
-        data += 1, size += 1;
+    for (;;) {
+        llen = utf8_line_length(data);
+
+        if (0 == llen || 0 != utf8_trimmed_length(data, llen)) {
+            break;
+        }
+
+        data += llen;
+        size += llen;
     }
 
     if (4 == sscanf(data, "%2d:%2d:%2d%*1[:;]%2d", &hh, &mm, &ss, &ff)) {
@@ -94,7 +101,6 @@ size_t scc_to_608(scc_t** scc, const utf8_char_t* data)
         (*scc) = scc_relloc((*scc), max_cc_count * 1.5);
         (*scc)->timestamp = scc_time_to_timestamp(hh, mm, ss, ff);
         (*scc)->cc_size = 0;
-
 
         while ((*scc)->cc_size < max_cc_count && 1 == sscanf(data, "%04x", &cc_data)) {
             (*scc)->cc_data[(*scc)->cc_size] = (uint16_t)cc_data;
