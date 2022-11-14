@@ -53,7 +53,7 @@ static inline libcaption_stauts_t libcaption_status_update(libcaption_stauts_t o
 }
 
 #define SCREEN_ROWS 15
-#define SCREEN_COLS 32
+#define SCREEN_COLS 50
 
 typedef struct {
     unsigned int uln : 1; //< underline
