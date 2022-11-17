@@ -53,7 +53,10 @@ static inline libcaption_stauts_t libcaption_status_update(libcaption_stauts_t o
 }
 
 #define SCREEN_ROWS 15
-#define SCREEN_COLS 50
+// Usually this should be 32.
+// In our case the input already provides the captions preformatted,
+// so we do not want libcaption to add any other linebreaks.
+#define SCREEN_COLS 100
 
 typedef struct {
     unsigned int uln : 1; //< underline
