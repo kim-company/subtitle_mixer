@@ -24,6 +24,7 @@
 #ifndef LIBCAPTION_FLV_H
 #define LIBCAPTION_FLV_H
 
+#include "mpeg.h"
 #include <inttypes.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -31,8 +32,6 @@
 #define FLV_FOOTER_SIZE 4
 #define FLV_TAG_HEADER_SIZE 11
 #define FLV_TAG_FOOTER_SIZE 4
-////////////////////////////////////////////////////////////////////////////////
-#include "avc.h"
 ////////////////////////////////////////////////////////////////////////////////
 typedef struct {
     uint8_t* data;
@@ -123,6 +122,7 @@ FILE* flv_close(FILE* flv);
 static inline const uint8_t* flvtag_raw_data(flvtag_t* tag) { return tag->data; }
 static inline const size_t flvtag_raw_size(flvtag_t* tag) { return flvtag_size(tag) + FLV_TAG_HEADER_SIZE + FLV_TAG_FOOTER_SIZE; }
 ////////////////////////////////////////////////////////////////////////////////
+int flv_payload_read_tag(uint8_t *h, flvtag_t *tag);
 int flv_read_tag(FILE* flv, flvtag_t* tag);
 int flv_write_tag(FILE* flv, flvtag_t* tag);
 int flv_read_header(FILE* flv, int* has_audio, int* has_video);
@@ -140,7 +140,4 @@ int flvtag_amfcaption_708(flvtag_t* tag, uint32_t timestamp, sei_message_t* msg)
 ////////////////////////////////////////////////////////////////////////////////
 // This method is expermental, and not currently available on Twitch
 int flvtag_amfcaption_utf8(flvtag_t* tag, uint32_t timestamp, const utf8_char_t* text);
-// Added by us
-int flvtag_reserve(flvtag_t* tag, uint32_t size);
-int flvtag_updatesize(flvtag_t* tag, uint32_t size);
 #endif

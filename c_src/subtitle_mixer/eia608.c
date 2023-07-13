@@ -29,14 +29,6 @@
 int eia608_row_map[] = { 10, -1, 0, 1, 2, 3, 11, 12, 13, 14, 4, 5, 6, 7, 8, 9 };
 int eia608_reverse_row_map[] = { 2, 3, 4, 5, 10, 11, 12, 13, 14, 15, 0, 6, 7, 8, 9, 1 };
 
-const char* eia608_mode_map[] = {
-    "clear",
-    "loading",
-    "popOn",
-    "paintOn",
-    "rollUp",
-};
-
 const char* eia608_style_map[] = {
     "white",
     "green",
@@ -55,7 +47,8 @@ static inline uint16_t eia608_row_pramble(int row, int chan, int x, int underlin
 }
 
 uint16_t eia608_row_column_pramble(int row, int col, int chan, int underline) { return eia608_row_pramble(row, chan, 0x10 | (col / 4), underline); }
-uint16_t eia608_row_style_pramble(int row, eia608_style_t style, int chan, int underline) { return eia608_row_pramble(row, chan, style, underline); }
+uint16_t eia608_row_style_pramble(int row, int chan, eia608_style_t style, int underline) { return eia608_row_pramble(row, chan, style, underline); }
+uint16_t eia608_midrow_change(int chan, eia608_style_t style, int underline) { return eia608_parity(0x1120 | ((chan << 11) & 0x0800) | ((style << 1) & 0x000E) | (underline & 0x0001)); }
 
 int eia608_parse_preamble(uint16_t cc_data, int* row, int* col, eia608_style_t* style, int* chan, int* underline)
 {
@@ -161,8 +154,8 @@ int eia608_to_utf8(uint16_t c, int* chan, char* str1, char* str2)
 {
     int c1, c2;
     int size = (int)eia608_to_index(c, chan, &c1, &c2);
-    strncpy(str1, utf8_from_index(c1), 5);
-    strncpy(str2, utf8_from_index(c2), 5);
+    utf8_char_copy(str1, utf8_from_index(c1));
+    utf8_char_copy(str2, utf8_from_index(c2));
     return size;
 }
 
@@ -172,7 +165,7 @@ uint16_t eia608_from_basicna(uint16_t bna1, uint16_t bna2)
         return 0;
     }
 
-    return eia608_parity(((0xFF00 & bna1) >> 0) | ((0xFF00 & bna2) >> 8));
+    return eia608_parity((0xFF00 & bna1) | ((0xFF00 & bna2) >> 8));
 }
 
 // prototype for re2c generated function

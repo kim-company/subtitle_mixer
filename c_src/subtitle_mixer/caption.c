@@ -27,7 +27,6 @@
 #include "xds.h"
 #include <stdio.h>
 #include <string.h>
-#include <sys/types.h>
 ////////////////////////////////////////////////////////////////////////////////
 void caption_frame_buffer_clear(caption_frame_buffer_t* buff)
 {
@@ -36,22 +35,18 @@ void caption_frame_buffer_clear(caption_frame_buffer_t* buff)
 
 void caption_frame_state_clear(caption_frame_t* frame)
 {
+    frame->write = 0;
     frame->timestamp = -1;
-    frame->state = (caption_frame_state_t){ 0, 0, 0, 0, SCREEN_ROWS - 1, 0, 0 }; // clear global state
+    frame->state = (caption_frame_state_t){ 0, 0, 0, SCREEN_ROWS - 1, 0, 0 }; // clear global state
 }
 
 void caption_frame_init(caption_frame_t* frame)
 {
-    caption_frame_state_clear(frame);
     xds_init(&frame->xds);
+    caption_frame_state_clear(frame);
     caption_frame_buffer_clear(&frame->back);
     caption_frame_buffer_clear(&frame->front);
 }
-////////////////////////////////////////////////////////////////////////////////
-#define CAPTION_CLEAR 0
-#define CAPTION_POP_ON 2
-#define CAPTION_PAINT_ON 3
-#define CAPTION_ROLL_UP 4
 ////////////////////////////////////////////////////////////////////////////////
 // Helpers
 static caption_frame_cell_t* frame_buffer_cell(caption_frame_buffer_t* buff, int row, int col)
@@ -63,27 +58,14 @@ static caption_frame_cell_t* frame_buffer_cell(caption_frame_buffer_t* buff, int
     return &buff->cell[row][col];
 }
 
-static caption_frame_buffer_t* frame_write_buffer(caption_frame_t* frame)
-{
-    if (CAPTION_POP_ON == frame->state.mod) {
-        return &frame->back;
-    } else if (CAPTION_PAINT_ON == frame->state.mod || CAPTION_ROLL_UP == frame->state.mod) {
-        return &frame->front;
-    } else {
-        return 0;
-    }
-}
-////////////////////////////////////////////////////////////////////////////////
 uint16_t _eia608_from_utf8(const char* s); // function is in eia608.c.re2c
 int caption_frame_write_char(caption_frame_t* frame, int row, int col, eia608_style_t style, int underline, const char* c)
 {
-    caption_frame_buffer_t* buff = frame_write_buffer(frame);
-
-    if (!buff || !_eia608_from_utf8(c)) {
+    if (!frame->write || !_eia608_from_utf8(c)) {
         return 0;
     }
 
-    caption_frame_cell_t* cell = frame_buffer_cell(buff, row, col);
+    caption_frame_cell_t* cell = frame_buffer_cell(frame->write, row, col);
 
     if (cell && utf8_char_copy(&cell->data[0], c)) {
         cell->uln = underline;
@@ -96,6 +78,7 @@ int caption_frame_write_char(caption_frame_t* frame, int row, int col, eia608_st
 
 const utf8_char_t* caption_frame_read_char(caption_frame_t* frame, int row, int col, eia608_style_t* style, int* underline)
 {
+    // always read from front
     caption_frame_cell_t* cell = frame_buffer_cell(&frame->front, row, col);
 
     if (!cell) {
@@ -125,25 +108,24 @@ const utf8_char_t* caption_frame_read_char(caption_frame_t* frame, int row, int 
 // Parsing
 libcaption_stauts_t caption_frame_carriage_return(caption_frame_t* frame)
 {
-    caption_frame_buffer_t* buff = frame_write_buffer(frame);
-    if (!buff || 0 > frame->state.row || SCREEN_ROWS <= frame->state.row) {
+    if (0 > frame->state.row || SCREEN_ROWS <= frame->state.row) {
         return LIBCAPTION_ERROR;
     }
 
     int r = frame->state.row - (frame->state.rup - 1);
 
-    if (0 >= r || CAPTION_ROLL_UP != frame->state.mod) {
+    if (0 >= r || !caption_frame_rollup(frame)) {
         return LIBCAPTION_OK;
     }
 
     for (; r < SCREEN_ROWS; ++r) {
-        uint8_t* dst = (uint8_t*)frame_buffer_cell(buff, r - 1, 0);
-        uint8_t* src = (uint8_t*)frame_buffer_cell(buff, r - 0, 0);
+        uint8_t* dst = (uint8_t*)frame_buffer_cell(frame->write, r - 1, 0);
+        uint8_t* src = (uint8_t*)frame_buffer_cell(frame->write, r - 0, 0);
         memcpy(dst, src, sizeof(caption_frame_cell_t) * SCREEN_COLS);
     }
 
     frame->state.col = 0;
-    caption_frame_cell_t* cell = frame_buffer_cell(buff, SCREEN_ROWS - 1, 0);
+    caption_frame_cell_t* cell = frame_buffer_cell(frame->write, SCREEN_ROWS - 1, 0);
     memset(cell, 0, sizeof(caption_frame_cell_t) * SCREEN_COLS);
     return LIBCAPTION_OK;
 }
@@ -202,6 +184,22 @@ libcaption_stauts_t caption_frame_backspace(caption_frame_t* frame)
     return LIBCAPTION_READY;
 }
 
+libcaption_stauts_t caption_frame_delete_to_end_of_row(caption_frame_t* frame)
+{
+    int c;
+    if (frame->write) {
+        for (c = frame->state.col; c < SCREEN_COLS; ++c) {
+            caption_frame_write_char(frame, frame->state.row, c, eia608_style_white, 0, EIA608_CHAR_NULL);
+        }
+    }
+
+    // TODO test this and replace loop
+    //  uint8_t* dst = (uint8_t*)frame_buffer_cell(frame->write, frame->state.row, frame->state.col);
+    //  memset(dst,0,sizeof(caption_frame_cell_t) * (SCREEN_COLS - frame->state.col - 1))
+
+    return LIBCAPTION_READY;
+}
+
 libcaption_stauts_t caption_frame_decode_control(caption_frame_t* frame, uint16_t cc_data)
 {
     int cc;
@@ -211,7 +209,7 @@ libcaption_stauts_t caption_frame_decode_control(caption_frame_t* frame, uint16_
     // PAINT ON
     case eia608_control_resume_direct_captioning:
         frame->state.rup = 0;
-        frame->state.mod = CAPTION_PAINT_ON;
+        frame->write = &frame->front;
         return LIBCAPTION_OK;
 
     case eia608_control_erase_display_memory:
@@ -221,17 +219,17 @@ libcaption_stauts_t caption_frame_decode_control(caption_frame_t* frame, uint16_
     // ROLL-UP
     case eia608_control_roll_up_2:
         frame->state.rup = 1;
-        frame->state.mod = CAPTION_ROLL_UP;
+        frame->write = &frame->front;
         return LIBCAPTION_OK;
 
     case eia608_control_roll_up_3:
         frame->state.rup = 2;
-        frame->state.mod = CAPTION_ROLL_UP;
+        frame->write = &frame->front;
         return LIBCAPTION_OK;
 
     case eia608_control_roll_up_4:
         frame->state.rup = 3;
-        frame->state.mod = CAPTION_ROLL_UP;
+        frame->write = &frame->front;
         return LIBCAPTION_OK;
 
     case eia608_control_carriage_return:
@@ -240,20 +238,13 @@ libcaption_stauts_t caption_frame_decode_control(caption_frame_t* frame, uint16_
     // Corrections (Is this only valid as part of paint on?)
     case eia608_control_backspace:
         return caption_frame_backspace(frame);
-
-    case eia608_control_delete_to_end_of_row: {
-        int c;
-
-        for (c = frame->state.col; c < SCREEN_COLS; ++c) {
-            caption_frame_write_char(frame, frame->state.row, c, eia608_style_white, 0, EIA608_CHAR_NULL);
-        }
-    }
-        return LIBCAPTION_READY;
+    case eia608_control_delete_to_end_of_row:
+        return caption_frame_delete_to_end_of_row(frame);
 
     // POP ON
     case eia608_control_resume_caption_loading:
         frame->state.rup = 0;
-        frame->state.mod = CAPTION_POP_ON;
+        frame->write = &frame->back;
         return LIBCAPTION_OK;
 
     case eia608_control_erase_non_displayed_memory:
@@ -315,8 +306,9 @@ libcaption_stauts_t caption_frame_decode(caption_frame_t* frame, uint16_t cc_dat
         return frame->status;
     }
 
-    if (0 > frame->timestamp || LIBCAPTION_READY == frame->status) {
+    if (0 > frame->timestamp || frame->timestamp == timestamp || LIBCAPTION_READY == frame->status) {
         frame->timestamp = timestamp;
+        frame->status = LIBCAPTION_OK;
     }
 
     // skip duplicate controll commands. We also skip duplicate specialna to match the behaviour of iOS/vlc
@@ -336,7 +328,7 @@ libcaption_stauts_t caption_frame_decode(caption_frame_t* frame, uint16_t cc_dat
     } else if (eia608_is_basicna(cc_data) || eia608_is_specialna(cc_data) || eia608_is_westeu(cc_data)) {
 
         // Don't decode text if we dont know what mode we are in.
-        if (CAPTION_CLEAR == frame->state.mod) {
+        if (!frame->write) {
             frame->status = LIBCAPTION_OK;
             return frame->status;
         }
@@ -344,7 +336,7 @@ libcaption_stauts_t caption_frame_decode(caption_frame_t* frame, uint16_t cc_dat
         frame->status = caption_frame_decode_text(frame, cc_data);
 
         // If we are in paint on mode, display immiditally
-        if (LIBCAPTION_OK == frame->status && (CAPTION_PAINT_ON == frame->state.mod || CAPTION_ROLL_UP == frame->state.mod)) {
+        if (LIBCAPTION_OK == frame->status && caption_frame_painton(frame)) {
             frame->status = LIBCAPTION_READY;
         }
     } else if (eia608_is_preamble(cc_data)) {
@@ -359,33 +351,27 @@ libcaption_stauts_t caption_frame_decode(caption_frame_t* frame, uint16_t cc_dat
 ////////////////////////////////////////////////////////////////////////////////
 int caption_frame_from_text(caption_frame_t* frame, const utf8_char_t* data)
 {
-    int r, c;
     ssize_t size = (ssize_t)strlen(data);
-    size_t char_count, char_length, line_length = 0, trimmed_length = 0;
     caption_frame_init(frame);
-    frame->state.mod = CAPTION_POP_ON;
+    frame->write = &frame->back;
 
-    for (r = 0; 0 < size && SCREEN_ROWS > r; ++r) {
-        const utf8_char_t* cap_data = data;
-        line_length = utf8_line_length(cap_data);
-        trimmed_length = utf8_trimmed_length(cap_data, line_length);
-        char_count = utf8_char_count(cap_data, trimmed_length);
-
-        // If char_count is greater than one line can display, split it.
-        if (SCREEN_COLS < char_count) {
-            char_count = utf8_wrap_length(cap_data, SCREEN_COLS);
-            line_length = utf8_string_length(cap_data, char_count + 1);
+    for (size_t r = 0; (*data) && size && r < SCREEN_ROWS;) {
+        // skip whitespace at start of line
+        while (size && utf8_char_whitespace(data)) {
+            size_t s = utf8_char_length(data);
+            data += s, size -= s;
         }
 
-        // Write the line
-        for (c = 0; c < (int)char_count; ++c) {
-            caption_frame_write_char(frame, r, c, eia608_style_white, 0, &cap_data[0]);
-            char_length = utf8_char_length(cap_data);
-            cap_data += char_length;
+        // get charcter count for wrap (or orest of line)
+        utf8_size_t char_count = utf8_wrap_length(data, SCREEN_COLS);
+        // write to caption frame
+        for (size_t c = 0; c < char_count; ++c) {
+            size_t char_length = utf8_char_length(data);
+            caption_frame_write_char(frame, r, c, eia608_style_white, 0, data);
+            data += char_length, size -= char_length;
         }
 
-        data += line_length;
-        size -= (ssize_t)line_length;
+        r += char_count ? 1 : 0; // Update row num only if not blank
     }
 
     caption_frame_end(frame);
@@ -423,9 +409,8 @@ size_t caption_frame_dump_buffer(caption_frame_t* frame, utf8_char_t* buf)
 {
     int r, c;
     size_t bytes, total = 0;
-    bytes = sprintf(buf, "   timestamp: %f row: %d\tcol: %d\n   mode: %s\troll-up: %d\n",
-        frame->timestamp, frame->state.row, frame->state.col,
-        eia608_mode_map[frame->state.mod], frame->state.rup ? 1 + frame->state.rup : 0);
+    bytes = sprintf(buf, "   timestamp: %f\n   row: %02d    col: %02d    roll-up: %d\n",
+        frame->timestamp, frame->state.row, frame->state.col, caption_frame_rollup(frame));
     total += bytes, buf += bytes;
     bytes = sprintf(buf, "   00000000001111111111222222222233\t   00000000001111111111222222222233\n"
                          "   01234567890123456789012345678901\t   01234567890123456789012345678901\n"

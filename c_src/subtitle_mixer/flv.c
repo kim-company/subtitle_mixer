@@ -24,7 +24,8 @@
 #include "flv.h"
 #include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
+
+int flvtag_updatesize(flvtag_t* tag, uint32_t size);
 
 void flvtag_init(flvtag_t* tag)
 {
@@ -104,6 +105,23 @@ int flv_write_header(FILE* flv, int has_audio, int has_video)
 {
     uint8_t h[FLV_HEADER_SIZE] = { 'F', 'L', 'V', 1, (has_audio ? 0x04 : 0x00) | (has_video ? 0x01 : 0x00), 0, 0, 0, 9, 0, 0, 0, 0 };
     return FLV_HEADER_SIZE == fwrite(&h[0], 1, FLV_HEADER_SIZE, flv);
+}
+
+// Added for subtitle_mixer in which the whole FLV payload
+// is already present in memory, pointed by h.
+int flv_payload_read_tag(uint8_t *h, flvtag_t *tag)
+{
+    uint32_t size;
+
+    // bytes 6, 7, 8 of a tag header contain the tag size
+    size = ((h[1] << 16) | (h[2] << 8) | h[3]);
+    flvtag_reserve(tag, size);
+    // copy header to buffer
+    memcpy(tag->data, h, size + FLV_TAG_HEADER_SIZE);
+
+    flvtag_updatesize(tag, size);
+
+    return 1;
 }
 
 int flv_read_tag(FILE* flv, flvtag_t* tag)
@@ -346,7 +364,7 @@ int flvtag_addsei(flvtag_t* tag, sei_t* sei)
     }
 
     sei_t new_sei;
-    sei_init(&new_sei);
+    sei_init(&new_sei, flvtag_pts(tag));
     sei_cat(&new_sei, sei, 1);
 
     flvtag_t new_tag;
@@ -387,7 +405,7 @@ int flvtag_addsei(flvtag_t* tag, sei_t* sei)
 int flvtag_addcaption_text(flvtag_t* tag, const utf8_char_t* text)
 {
     sei_t sei;
-    sei_init(&sei);
+    sei_init(&sei, flvtag_pts(tag));
 
     if (text) {
         caption_frame_t frame;
@@ -406,7 +424,7 @@ int flvtag_addcaption_text(flvtag_t* tag, const utf8_char_t* text)
 int flvtag_addcaption_scc(flvtag_t* tag, const scc_t* scc)
 {
     sei_t sei;
-    sei_init(&sei);
+    sei_init(&sei, flvtag_pts(tag));
     sei_from_scc(&sei, scc);
     int ret = flvtag_addsei(tag, &sei);
     sei_free(&sei);
