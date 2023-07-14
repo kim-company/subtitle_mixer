@@ -119,8 +119,6 @@ int flv_payload_read_tag(uint8_t *h, flvtag_t *tag)
     // copy header to buffer
     memcpy(tag->data, h, size + FLV_TAG_HEADER_SIZE);
 
-    flvtag_updatesize(tag, size);
-
     return 1;
 }
 
