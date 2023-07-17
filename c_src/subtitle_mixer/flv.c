@@ -369,7 +369,7 @@ int flvtag_addsei(flvtag_t* tag, sei_t* sei)
     flvtag_initavc(&new_tag, flvtag_dts(tag), flvtag_cts(tag), flvtag_frametype(tag));
 
     uint8_t* data = flvtag_payload_data(tag);
-    ssize_t size = flvtag_payload_size(tag);
+    size_t size = flvtag_payload_size(tag);
 
     while (0 < size) {
         uint8_t* nalu_data = &data[LENGTH_SIZE];
