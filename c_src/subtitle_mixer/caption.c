@@ -351,7 +351,7 @@ libcaption_stauts_t caption_frame_decode(caption_frame_t* frame, uint16_t cc_dat
 ////////////////////////////////////////////////////////////////////////////////
 int caption_frame_from_text(caption_frame_t* frame, const utf8_char_t* data)
 {
-    ssize_t size = (ssize_t)strlen(data);
+    size_t size = (size_t)strlen(data);
     caption_frame_init(frame);
     frame->write = &frame->back;
 
