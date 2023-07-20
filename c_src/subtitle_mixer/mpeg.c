@@ -415,7 +415,9 @@ void sei_encode_eia608(sei_t* sei, cea708_t* cea708, uint16_t cc_data)
 {
     // This one is full, flush and init a new one
     // shoudl this be 32? I cant remember
-    if (31 == cea708->user_data.cc_count) {
+    uint16_t is_finished = cc_data & eia608_control_end_of_caption;
+
+    if (31 == cea708->user_data.cc_count && is_finished != eia608_control_end_of_caption) {
         sei_append_708(sei, cea708);
     }
 
